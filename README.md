@@ -492,6 +492,10 @@
         const urlParams = new URLSearchParams(window.location.search);
         const page = urlParams.get('page');
         if (page) loadHTML(page, false); else loadHome();
+      fetch('pages/home_vpd.html')
+      fetch('pages/cod_penal.html')
+      fetch('pages/ghid_dashboard.html')
+      fetch('pages/pontaj.html')
     });
 
   </script>
