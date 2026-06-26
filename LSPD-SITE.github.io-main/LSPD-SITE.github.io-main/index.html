@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>VPD — Portal Oficial</title>
+  <link rel="icon" type="image/png" href="images/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root{ 
+      --navy:#0a2240; --navy-2:#0c2f5c; --bg:#071632; --panel:#111827; 
+      --muted:#9ca3af; --highlight:#3b82f6; --outline: rgba(255,255,255,0.06); 
+      --sidebar-closed: 80px; --sidebar-open: 300px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{ margin:0; font-family:Inter, sans-serif; background:var(--bg); color:#f8fafc; min-height:100vh; display:flex; justify-content:center; }
+    
+    /* BACKGROUND CANVAS */
+    #bgCanvas {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; 
+        pointer-events: none; opacity: 0; transition: opacity 0.6s ease; filter: none;
+    }
+
+    .app{ width:100%; height:100vh; display:flex; overflow: hidden; position: relative; z-index: 2; }
+
+    /* SIDEBAR */
+    .sidebar {
+        width: var(--sidebar-closed); background: linear-gradient(180deg, var(--navy-2), var(--navy));
+        border-right: 1px solid var(--outline); display: flex; flex-direction: column;
+        transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); position: relative; z-index: 100; flex-shrink: 0; overflow: visible; 
+    }
+    .sidebar.open { width: var(--sidebar-open); overflow: hidden; }
+
+    /* --- LOGO CU PULS REPARAT --- */
+    .brand {
+        height: 80px; display: flex; align-items: center; padding: 0 14px;
+        border-bottom: 1px solid transparent; transition: 0.3s; cursor: pointer; position: relative;
+    }
+    .sidebar.open .brand { border-color: var(--outline); }
+    
+    @keyframes subtlePulse {
+        0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.6); }
+        70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    }
+
+    .logo {
+        width: 50px; 
+        height: 50px; 
+        min-width: 50px; /* Fortam marimea sa nu se strice */
+        flex-shrink: 0; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        transition: transform 0.2s; 
+        border-radius: 50%;
+        overflow: hidden; 
+        background: rgba(255,255,255,0.05);
+        /* AICI E PULSUL */
+        animation: subtlePulse 2s infinite;
+    }
+    
+    .sidebar.open .logo { animation: none; } /* Oprim pulsul cand e meniul deschis ca sa nu distraga */
+
+    .logo img { 
+        width: 100%; 
+        height: 100%; 
+        object-fit: contain; 
+        max-width: 50px; 
+        max-height: 50px;
+    }
+    
+    .brand:hover .logo { transform: scale(1.1); }
+    
+    .brand::after {
+        content: "Deschide Meniu ▶"; position: absolute; left: 75px; top: 50%; transform: translateY(-50%);
+        background: var(--highlight); color: white; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; 
+        white-space: nowrap; opacity: 0; pointer-events: none; transition: all 0.3s ease; z-index: 101;
+    }
+    .sidebar:not(.open) .brand:hover::after { opacity: 1; left: 85px; }
+    .brand-text { margin-left: 15px; opacity: 0; white-space: nowrap; pointer-events: none; transition: opacity 0.2s; transform: translateX(-10px); }
+    .sidebar.open .brand-text { opacity: 1; pointer-events: auto; transform: translateX(0); transition-delay: 0.1s; }
+
+    /* MENU */
+    .nav-menu { flex: 1; padding: 20px 10px; overflow-y: auto; overflow-x: hidden; opacity: 0; transition: opacity 0.2s; visibility: hidden; }
+    .sidebar.open .nav-menu { opacity: 1; visibility: visible; transition-delay: 0.2s; }
+    .menu-btn { width: 100%; display: flex; align-items: center; gap: 12px; background: transparent; border: none; color: #cbd5e1; padding: 12px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 15px; text-align: left; transition: all 0.2s; margin-bottom: 5px; }
+    .menu-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
+    .menu-btn.active-category { background: rgba(59, 130, 246, 0.15); color: var(--highlight); }
+    .menu-icon { font-size: 18px; width: 24px; text-align: center; }
+
+    .footer-info { padding: 20px; font-size: 11px; color: var(--muted); text-align: center; opacity: 0; transition: 0.3s; white-space: nowrap; }
+    .sidebar.open .footer-info { opacity: 1; }
+
+    /* CONTENT */
+    .main { flex: 1; background: rgba(13, 20, 35, 0.85); padding: 40px; overflow-y: auto; position: relative; backdrop-filter: blur(3px); }
+    .header { margin-bottom: 25px; border-bottom: 1px solid var(--outline); padding-bottom: 15px; }
+    .header h2 { margin: 0; font-size: 24px; }
+
+    /* GENERAL PAGE STYLES */
+    .crime { margin-bottom:18px; padding:16px; border-radius:8px; background:linear-gradient(180deg,rgba(15, 23, 36, 0.9),rgba(11, 18, 32, 0.9)); border:1px solid rgba(255,255,255,0.02); animation: fadeIn 0.3s ease; }
+    .crime h3 { margin:0 0 6px 0; color:#fff; }
+    .crime p.desc { margin:0 0 8px 0; color:#cbd5e1; font-size:14px; line-height:1.5; }
+    .rank-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px; }
+    .rank-btn { background: #1f2937; border: 1px solid var(--outline); color: white; padding: 20px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: .2s; }
+    
+    @keyframes fadeIn { from{opacity:0; transform:translateY(5px)} to{opacity:1; transform:translateY(0)} }
+
+    /* TOAST NOTIFICATION */
+    #toast {
+        visibility: hidden; min-width: 300px; 
+        background-color: #1e293b; color: #fff; text-align: center;
+        border-radius: 8px; padding: 20px; position: fixed; z-index: 999; 
+        left: 50%; bottom: 30px; transform: translateX(-50%); 
+        font-size: 15px; font-weight: 600;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        border: 1px solid rgba(255,255,255,0.1);
+        transition: all 0.3s;
+    }
+    /* Culori Notificari */
+    #toast.success { border-left: 5px solid #10b981; background: rgba(6, 78, 59, 0.95); color: #ecfdf5; }
+    #toast.warning { border-left: 5px solid #ef4444; background: rgba(127, 29, 29, 0.95); color: #fef2f2; }
+    #toast.show { visibility: visible; bottom: 50px; opacity: 1; }
+
+    @media (max-width: 768px) {
+        .sidebar { position: absolute; height: 100%; box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
+        .sidebar.open { width: 100%; } 
+        .main { padding: 15px; }
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="bgCanvas"></canvas>
+
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand" onclick="toggleSidebar()">
+        <div class="logo"><img src="images/logo.png" alt="VPD"></div>
+        <div class="brand-text">
+          <h1 style="font-size:16px; margin:0; font-weight:800;">Vision Police</h1>
+          <p style="font-size:11px; margin:0; color:var(--muted)">Portal Oficial</p>
+        </div>
+        <div style="margin-left: auto; color: var(--muted); font-size: 12px;" class="brand-text">▼</div>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="menu-btn" onclick="loadHome()">
+          <span class="menu-icon">🏠</span> Acasă
+        </button>
+        <button class="menu-btn" onclick="loadCodPenalDashboard(this)">
+          <span class="menu-icon">⚖️</span> Cod Penal
+        </button>
+        <button class="menu-btn" onclick="loadGhidDashboard(this)">
+          <span class="menu-icon">📘</span> Ghid
+        </button>
+        <button class="menu-btn" onclick="loadResource('Uniforme', this)">
+          <span class="menu-icon">👕</span> Uniforme
+        </button>
+        <button class="menu-btn" onclick="loadResource('Arme', this)">
+          <span class="menu-icon">🔫</span> Arme
+        </button>
+        <button class="menu-btn" onclick="loadResource('Masini', this)">
+          <span class="menu-icon">🚓</span> Mașini
+        </button>
+        
+        <button class="menu-btn" onclick="loadPontaj(this)">
+          <span class="menu-icon">⏱️</span> Pontaj
+        </button>
+
+      </nav>
+      <div class="footer-info">© 2026 VPD System v2.0</div>
+    </aside>
+
+    <main class="main" onclick="closeSidebarIfMobile()">
+      <div class="header"><h2 id="pageTitle">Bun venit</h2></div>
+      <div id="contentArea"></div>
+    </main>
+  </div>
+
+  <div id="toast">Notificare...</div>
+
+  <script>
+    const contentArea = document.getElementById('contentArea');
+    const pageTitle = document.getElementById('pageTitle');
+    const sidebar = document.getElementById('sidebar');
+    const bgCanvas = document.getElementById('bgCanvas');
+    const toast = document.getElementById('toast');
+    
+    let currentCategory = ''; 
+    let currentEffect = 'home'; 
+
+    // --- SCRIPT BACKGROUND DINAMIC ---
+    const ctx = bgCanvas.getContext('2d');
+    let width, height, particles = [];
+    const mouse = { x: -9999, y: -9999 };
+
+    function resize() {
+        width = window.innerWidth; height = window.innerHeight;
+        bgCanvas.width = width; bgCanvas.height = height;
+        if(currentEffect === 'masini') initCars(); else initParticles();
+    }
+
+    class Particle {
+        constructor() {
+            this.x = Math.random() * width; this.y = Math.random() * height;
+            this.vx = (Math.random() - 0.5) * 0.4; this.vy = (Math.random() - 0.5) * 0.4;
+            this.size = Math.random() * 20 + 15; this.baseAlpha = 0.35; this.alpha = this.baseAlpha;
+            this.type = Math.random() > 0.5; 
+        }
+        update() {
+            this.x += this.vx; this.y += this.vy;
+            if(this.x < -50) this.x = width + 50; if(this.x > width + 50) this.x = -50;
+            if(this.y < -50) this.y = height + 50; if(this.y > height + 50) this.y = -50;
+            const dx = mouse.x - this.x; const dy = mouse.y - this.y;
+            if(Math.sqrt(dx*dx + dy*dy) < 200) { if(this.alpha < 0.9) this.alpha += 0.03; } 
+            else { if(this.alpha > this.baseAlpha) this.alpha -= 0.01; }
+        }
+        draw() {
+            ctx.globalAlpha = this.alpha;
+            if (currentEffect === 'home') {
+                const color = this.type ? '#ef4444' : '#3b82f6';
+                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
+                gradient.addColorStop(0, color); gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+            } else if (currentEffect === 'uniforme') {
+                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.beginPath();
+                ctx.moveTo(this.x-12, this.y-7); ctx.lineTo(this.x, this.y+7); ctx.lineTo(this.x+12, this.y-7); ctx.stroke();
+            } else if (currentEffect === 'arme') {
+                ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.beginPath();
+                ctx.arc(this.x, this.y, 12, 0, Math.PI * 2); ctx.stroke();
+                ctx.moveTo(this.x, this.y-16); ctx.lineTo(this.x, this.y+16); ctx.stroke();
+                ctx.moveTo(this.x-16, this.y); ctx.lineTo(this.x+16, this.y); ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    class PoliceCar {
+        constructor() {
+            this.x = Math.random() * width; this.y = Math.random() * height;
+            this.vx = (Math.random() < 0.5 ? -1 : 1) * (Math.random() * 1 + 0.5); this.vy = (Math.random() * 0.5 - 0.25);
+            this.angle = Math.atan2(this.vy, this.vx);
+        }
+        update() {
+            this.x += this.vx; this.y += this.vy;
+            if(this.x < -50) this.x = width + 50; if(this.x > width + 50) this.x = -50;
+            if(this.y < -50) this.y = height + 50; if(this.y > height + 50) this.y = -50;
+        }
+        draw() {
+            ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
+            ctx.fillStyle = '#1e293b'; ctx.fillRect(-15, -8, 30, 16);
+            const pulse = (Math.sin(Date.now() / 150) + 1) / 2; 
+            ctx.fillStyle = `rgba(239, 68, 68, ${pulse * 0.7 + 0.3})`; ctx.beginPath(); ctx.arc(-5, 0, 5, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = `rgba(59, 130, 246, ${(1-pulse) * 0.7 + 0.3})`; ctx.beginPath(); ctx.arc(5, 0, 5, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    function initParticles() { particles = []; for(let i=0; i<35; i++) particles.push(new Particle()); }
+    function initCars() { particles = []; for(let i=0; i<20; i++) particles.push(new PoliceCar()); }
+    function animate() { ctx.clearRect(0, 0, width, height); particles.forEach(p => { p.update(); p.draw(); }); requestAnimationFrame(animate); }
+
+    window.addEventListener('resize', resize);
+    window.addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
+    resize(); animate();
+
+    function toggleSidebar() { sidebar.classList.toggle('open'); }
+    function closeSidebarIfMobile() { if(window.innerWidth < 768) sidebar.classList.remove('open'); }
+
+    // --- TOAST FUNCTION ---
+    function showToast(message, type = "normal") {
+        toast.innerText = message;
+        toast.className = "";
+        if(type === "success") toast.classList.add("success");
+        if(type === "warning") toast.classList.add("warning");
+        void toast.offsetWidth; 
+        toast.classList.add("show");
+        setTimeout(() => { toast.classList.remove("show"); }, 5000); 
+    }
+
+    // --- NAVIGATION ---
+    async function loadHTML(urlIdentifier, updateHistory = true) {
+      contentArea.innerHTML = '<div style="padding:20px; color:#aaa; text-align:center">Se încarcă...</div>';
+      let realFile = urlIdentifier;
+      let newEffect = 'home'; let applyBlur = true;
+
+      if(urlIdentifier === 'home_vpd' || urlIdentifier === 'ghid_dashboard') newEffect = 'home';
+      else if (urlIdentifier.includes('uniforme')) { newEffect = 'uniforme'; applyBlur = false; }
+      else if (urlIdentifier.includes('arme')) { newEffect = 'arme'; applyBlur = false; }
+      else if (urlIdentifier.includes('masini')) { newEffect = 'masini'; applyBlur = false; }
+      else if (urlIdentifier.includes('pontaj')) { newEffect = 'hidden'; } 
+      else if (urlIdentifier.startsWith('cap') || urlIdentifier === 'cod_penal' || urlIdentifier.startsWith('ghid_')) newEffect = 'hidden';
+
+      if (newEffect !== currentEffect) {
+          currentEffect = newEffect;
+          if (currentEffect === 'hidden') bgCanvas.style.opacity = '0';
+          else {
+               bgCanvas.style.opacity = '1'; bgCanvas.style.filter = applyBlur ? 'blur(4px)' : 'none';
+               if (currentEffect === 'masini') initCars(); else initParticles();
+          }
+      }
+
+      // Mapari fisiere
+      if(urlIdentifier.startsWith('selectie_grade_')) realFile = 'selectie_grade'; 
+      if(urlIdentifier === 'cod_penal') realFile = 'cod_penal'; 
+      if(urlIdentifier === 'ghid_dashboard') realFile = 'ghid_dashboard'; 
+      if(urlIdentifier === 'pontaj') realFile = 'pontaj';
+
+      if (updateHistory) {
+          const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?page=' + urlIdentifier;
+          window.history.pushState({path: newUrl}, '', newUrl);
+      }
+
+      try {
+        const response = await fetch('pages/' + realFile + '.html?v=' + new Date().getTime());
+        if (!response.ok) throw new Error("Fișier lipsă");
+        contentArea.innerHTML = await response.text();
+        
+        if(urlIdentifier === 'pontaj') {
+            initPontajLogic();
+        }
+
+      } catch (error) {
+        contentArea.innerHTML = `<div class="crime" style="border-color:red"><h3>Eroare</h3><p>Lipsă fișier: <b>pages/${realFile}.html</b></p></div>`;
+      }
+    }
+
+    function loadHome() { resetActiveButtons(); pageTitle.innerText = "Vision Police Departament"; loadHTML('home_vpd'); }
+    function loadCodPenalDashboard(btn) { resetActiveButtons(); if(btn) btn.classList.add('active-category'); pageTitle.innerText = "Cod Penal - Capitole"; loadHTML('cod_penal'); }
+    function loadGhidDashboard(btn) { resetActiveButtons(); if(btn) btn.classList.add('active-category'); pageTitle.innerText = "Ghid Operativ"; loadHTML('ghid_dashboard'); }
+    function loadResource(type, btn) { resetActiveButtons(); if(btn) btn.classList.add('active-category'); currentCategory = type.toLowerCase(); pageTitle.innerText = "Gestiune: " + type; loadHTML('selectie_grade_' + currentCategory); }
+    function loadChapter(capKey) { pageTitle.innerText = "Cod Penal: " + capKey.toUpperCase(); loadHTML(capKey); }
+    function loadGhid(type) { pageTitle.innerText = "Ghid: " + type.toUpperCase(); loadHTML('ghid_' + type); }
+    function openRankPage(rank) { const fileName = `${currentCategory}_${rank}`; loadHTML(fileName); }
+    
+    function loadPontaj(btn) {
+        resetActiveButtons();
+        if(btn) btn.classList.add('active-category');
+        pageTitle.innerText = "Sistem Pontaj";
+        loadHTML('pontaj');
+    }
+
+    function resetActiveButtons() { document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active-category')); }
+
+    // --- LOGICA PONTAJ (CU ROTUNJIRE 5 MIN) ---
+    
+    function getRoundedDate() {
+        let d = new Date();
+        let coeff = 1000 * 60 * 5; // 5 minute
+        let rounded = new Date(Math.round(d.getTime() / coeff) * coeff);
+        return rounded;
+    }
+
+    function formatTime(dateObj) {
+        return dateObj.getHours().toString().padStart(2, '0') + ':' + dateObj.getMinutes().toString().padStart(2, '0');
+    }
+
+    function initPontajLogic() {
+        renderHistory();
+        checkActiveSession();
+    }
+
+    function handleClockIn() {
+        const roundedNow = getRoundedDate();
+        const timeString = formatTime(roundedNow);
+        
+        // Salvam in local storage
+        localStorage.setItem('vpd_status', 'active');
+        localStorage.setItem('vpd_startTime', roundedNow.getTime()); // Salvam timestamp rotunjit
+        localStorage.setItem('vpd_startStr', timeString);
+
+        // Copiem in clipboard
+        const copyText = `Clock-IN: ${timeString} / Clock-OUT:`;
+        navigator.clipboard.writeText(copyText);
+
+        showToast("Ti-ai pornit pontajul, nu uita sa il copiezi pe camera de discord", "success");
+        checkActiveSession();
+    }
+
+    function handleClockOut() {
+        const startTimestamp = localStorage.getItem('vpd_startTime');
+        if(!startTimestamp) return;
+
+        const roundedNow = getRoundedDate();
+        const endString = formatTime(roundedNow);
+        const startString = localStorage.getItem('vpd_startStr');
+
+        // Calcul durata bazat pe valorile rotunjite
+        const diffMs = roundedNow.getTime() - parseInt(startTimestamp);
+        const diffMins = Math.round(diffMs / 60000);
+
+        const copyText = `Clock-IN: ${startString} / Clock-OUT: ${endString} (${diffMins} min)`;
+        navigator.clipboard.writeText(copyText);
+
+        const historyItem = {
+            date: new Date().toLocaleDateString('ro-RO'),
+            start: startString,
+            end: endString,
+            duration: diffMins
+        };
+        
+        let history = JSON.parse(localStorage.getItem('vpd_history') || '[]');
+        history.unshift(historyItem); 
+        localStorage.setItem('vpd_history', JSON.stringify(history));
+
+        localStorage.removeItem('vpd_status');
+        localStorage.removeItem('vpd_startTime');
+        localStorage.removeItem('vpd_startStr');
+
+        showToast("Ai oprit pontajul nu uita sa modifici mesajul de pe discord", "warning");
+        checkActiveSession();
+        renderHistory();
+    }
+
+    function checkActiveSession() {
+        const status = localStorage.getItem('vpd_status');
+        const btnIn = document.getElementById('btnClockIn');
+        const btnOut = document.getElementById('btnClockOut');
+        const statusDiv = document.getElementById('activeStatus');
+        const timeDisplay = document.getElementById('startTimeDisplay');
+
+        if(status === 'active') {
+            if(btnIn) { btnIn.style.opacity = '0.5'; btnIn.style.pointerEvents = 'none'; }
+            if(btnOut) { btnOut.style.opacity = '1'; btnOut.style.pointerEvents = 'auto'; }
+            if(statusDiv) { statusDiv.style.display = 'block'; timeDisplay.innerText = localStorage.getItem('vpd_startStr'); }
+        } else {
+            if(btnIn) { btnIn.style.opacity = '1'; btnIn.style.pointerEvents = 'auto'; }
+            if(btnOut) { btnOut.style.opacity = '0.5'; btnOut.style.pointerEvents = 'none'; }
+            if(statusDiv) statusDiv.style.display = 'none';
+        }
+    }
+
+    function renderHistory() {
+        const tbody = document.getElementById('historyTableBody');
+        if(!tbody) return;
+
+        const history = JSON.parse(localStorage.getItem('vpd_history') || '[]');
+        tbody.innerHTML = '';
+
+        if(history.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#64748b;">Niciun pontaj înregistrat.</td></tr>';
+            return;
+        }
+
+        history.forEach((item, index) => {
+            const row = `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 12px; color: #cbd5e1;">${item.date}</td>
+                    <td style="padding: 12px; text-align: center; color: #10b981;">${item.start}</td>
+                    <td style="padding: 12px; text-align: center; color: #ef4444;">${item.end}</td>
+                    <td style="padding: 12px; text-align: center; font-weight: bold; color: #fff;">${item.duration} min</td>
+                    <td style="padding: 12px; text-align: right;">
+                        <button onclick="copyOldLog('${item.start}', '${item.end}', '${item.duration}')" style="background: rgba(59, 130, 246, 0.2); border: none; color: #3b82f6; cursor: pointer; padding: 4px 8px; border-radius: 4px;">Copy</button>
+                    </td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        });
+    }
+
+    function copyOldLog(start, end, duration) {
+        const text = `Clock-IN: ${start} / Clock-OUT: ${end} (${duration} min)`;
+        navigator.clipboard.writeText(text);
+        showToast("Log copiat în clipboard!", "normal");
+    }
+
+    function clearHistory() {
+        if(confirm("Sigur vrei să ștergi tot istoricul?")) {
+            localStorage.removeItem('vpd_history');
+            renderHistory();
+        }
+    }
+
+    // --- INIT ---
+    window.addEventListener('load', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const page = urlParams.get('page');
+        if (page) {
+            loadHTML(page, false);
+        } else {
+            loadHome();
+        }
+    });
+
+    window.addEventListener('popstate', (event) => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const page = urlParams.get('page');
+        if (page) loadHTML(page, false); else loadHome();
+    });
+
+  </script>
+</body>
+</html>
