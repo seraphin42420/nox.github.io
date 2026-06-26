@@ -1,4 +1,3 @@
-# lspd
 <!doctype html>
 <html lang="ro">
 <head>
